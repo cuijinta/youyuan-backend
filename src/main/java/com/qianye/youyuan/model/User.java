@@ -14,7 +14,7 @@ import lombok.Data;
 @Data
 public class User implements Serializable {
     /**
-     * 
+     *
      */
     @TableId
     private Long id;
@@ -92,4 +92,9 @@ public class User implements Serializable {
      * 标签 json 列表
      */
     private String tags;
+
+    /**
+     * 个人简介
+     */
+    private String profile;
 }

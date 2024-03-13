@@ -1,12 +1,26 @@
 spring:
   application:
-    name: user-center
+    name: you-yuan
     # DataSource Config
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/qy_user
     username: root
     password: 123456
+  # session 失效时间
+  session:
+    timeout: 86400
+#    store-type: redis  # 表示从 redis 读写 session
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher #解决swagger bug
+  redis:
+    port: 6379
+    host: 47.97.179.125
+    password: cjt123
+    database: 3
+
 server:
   port: 8080
   servlet:

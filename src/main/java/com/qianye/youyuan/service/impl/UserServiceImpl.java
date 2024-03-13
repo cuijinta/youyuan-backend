@@ -1,6 +1,5 @@
 package com.qianye.youyuan.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.Query;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
@@ -25,6 +24,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.qianye.youyuan.constant.UserConstant.ADMIN_ROLE;
 
 /**
  * @author 浅夜光芒万丈
@@ -172,26 +173,91 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return 包含所有标签的用户
      */
     @Override
-    public List<User> searchUserByTags(List<String> tagNameList) {
-        if(CollectionUtils.isEmpty(tagNameList)) {
+    public List<User> searchUsersByTags(List<String> tagNameList) {
+
+        if (CollectionUtils.isEmpty(tagNameList)) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
-        //方式2：可以先将所有用户查出来，再根据指定的标签筛选
-        //1.先查出所有用户
+        // 1. 先查询所有用户
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         List<User> userList = userMapper.selectList(queryWrapper);
-        //2.在内存中判断是否包含要求的标签
         Gson gson = new Gson();
-//        return userList.parallelStream().filter(user -> {  parallelStream 使用公共线程池，按情况考虑是否使用
+        // 2. 在内存中判断是否包含要求的标签
         return userList.stream().filter(user -> {
-           String tagNameStr = user.getTags();
-           Set<String> tempTagNameSet = gson.fromJson(tagNameStr, new TypeToken<Set<String>>(){}.getType());
-           tempTagNameSet = Optional.ofNullable(tempTagNameSet).orElse(new HashSet<>()); //如果tempTagNameSet为空就给它赋值为new HashSet
-           for(String tagName : tempTagNameSet) {
-               if(!tagNameList.contains(tagName)) return false;
-           }
-           return true;
-        }).collect(Collectors.toList()).stream().map(this::getSafetyUser).collect(Collectors.toList());
+            String tagsStr = user.getTags();
+            Set<String> tempTagNameSet = gson.fromJson(tagsStr, new TypeToken<Set<String>>() {
+            }.getType());
+            tempTagNameSet = Optional.ofNullable(tempTagNameSet).orElse(new HashSet<>());
+            for (String tagName : tagNameList) {
+                if (!tempTagNameSet.contains(tagName)) {
+                    return false;
+                }
+            }
+            return true;
+        }).map(this::getSafetyUser).collect(Collectors.toList());
+    }
+
+    /**
+     *  用户信息修改
+     * @param user
+     * @return
+     */
+    @Override
+    public int updateUser(User user,User loginUser) {
+        long userId = user.getId();
+        if (userId <= 0){
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        //如果是管理员，允许更新任意用户
+        //如果不是管理员，只允许更新自己的信息
+        if (!isAdmin(loginUser) && userId != loginUser.getId()){
+            throw new GlobalException(ErrorCode.NO_AUTH);
+        }
+        User user1 = userMapper.selectById(userId);
+        if (user1 == null){
+            throw new GlobalException(ErrorCode.NULL_ERROR);
+        }
+        return userMapper.updateById(user);
+    }
+
+    /**
+     * 是否为管理员
+     *
+     * @param request
+     * @return
+     */
+    public boolean isAdmin(HttpServletRequest request) {
+        // 仅管理员可查询
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATUS);
+        User user = (User) userObj;
+        return user != null && user.getUserRole() == ADMIN_ROLE;
+    }
+
+    /**
+     * 是否为管理员
+     *
+     * @param loginUser
+     * @return
+     */
+    public boolean isAdmin(User loginUser) {
+        return loginUser != null && loginUser.getUserRole() == ADMIN_ROLE;
+    }
+
+    /**
+     *  获取当前用户信息
+     * @param request
+     * @return
+     */
+    @Override
+    public User getLogininUser(HttpServletRequest request) {
+        if (request == null){
+            return null;
+        }
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATUS);
+        if (userObj == null){
+            throw new GlobalException(ErrorCode.NO_AUTH);
+        }
+        return (User) userObj;
     }
 
     /**
@@ -239,7 +305,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setUserStatus(user.getUserStatus());
         safetyUser.setEmail(user.getEmail());
         safetyUser.setCode(user.getCode());
-        safetyUser.setUserAccount(user.getTags());
+        safetyUser.setTags(user.getTags());
+        safetyUser.setProfile(user.getProfile());
 
         return safetyUser;
     }

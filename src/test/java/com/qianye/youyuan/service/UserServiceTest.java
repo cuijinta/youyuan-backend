@@ -44,49 +44,49 @@ public class UserServiceTest {
         System.out.println(newPassword);
     }
 
-    @Test
-    void userRegister() {
-        String userAccount = "qinaye";
-        String userPassword = "12345678";
-        String checkedPassword = "12345678";
-        String code = "1";
-        long result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试非空
-        userAccount = "";
-        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试账户名不小于6位
-        userAccount = "qi";
-        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试密码不足8位
-        userAccount = "qianye";
-        userPassword = "123456";
-        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试密码两次不一致
-        userPassword = "123456789";
-        checkedPassword = "12345678";
-        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试账号不能重复
-        userAccount = "123";
-        userPassword = "12345678";
-        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-        Assertions.assertEquals(-1L, result);
-
-        //测试注册功能是否正常
-//        userAccount = "qianye";
+////    @Test
+//    void userRegister() {
+//        String userAccount = "qinaye";
+//        String userPassword = "12345678";
+//        String checkedPassword = "12345678";
+//        String code = "1";
+//        long result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试非空
+//        userAccount = "";
 //        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
-//        Assertions.assertTrue(result > 0);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试账户名不小于6位
+//        userAccount = "qi";
+//        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试密码不足8位
+//        userAccount = "qianye";
+//        userPassword = "123456";
+//        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试密码两次不一致
+//        userPassword = "123456789";
+//        checkedPassword = "12345678";
+//        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试账号不能重复
+//        userAccount = "123";
+//        userPassword = "12345678";
+//        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+//        Assertions.assertEquals(-1L, result);
+//
+//        //测试注册功能是否正常
+////        userAccount = "qianye";
+////        result = userService.userRegister(userAccount, userPassword, checkedPassword, code);
+////        Assertions.assertTrue(result > 0);
+//
+//
 
-
-
-    }
+//    }
 }

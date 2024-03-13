@@ -1,6 +1,7 @@
 package com.qianye.youyuan.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qianye.youyuan.common.Result;
 import com.qianye.youyuan.constant.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
@@ -11,6 +12,8 @@ import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.utils.ResultUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
@@ -27,6 +30,7 @@ import static com.qianye.youyuan.constant.UserConstant.USER_LOGIN_STATUS;
  **/
 @RestController
 @RequestMapping("/user")
+@CrossOrigin(origins = {"http://localhost:5173"}) //配置跨域
 public class UserController {
 
     @Autowired
@@ -85,7 +89,7 @@ public class UserController {
      */
     @PostMapping("/logout")
     public Result<Integer> userLogout(HttpServletRequest request) {
-        if(request == null) {
+        if (request == null) {
             throw new GlobalException(ErrorCode.NOT_LOGIN);
         }
         Integer userLogout = userService.userLogout(request);
@@ -154,6 +158,54 @@ public class UserController {
 
         boolean isRemove = userService.removeById(id);
         return ResultUtils.success(isRemove);
+    }
+
+    /**
+     * 根据标签列表获取用户列表
+     *
+     * @param tagNameList 标签列表
+     * @return
+     */
+    @GetMapping("/search/tags")
+    public Result<List<User>> searchUserByTags(@RequestParam(required = false) List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        List<User> userList = userService.searchUsersByTags(tagNameList);
+        return ResultUtils.success(userList);
+    }
+
+    /**
+     * 根据标签列表获取用户列表
+     *
+     * @param pageSize 每页条数
+     * @param pageNum 当前页数
+     * @return
+     */
+    @GetMapping("/recommend")
+    public Result<Page<User>> recommendUsers(HttpServletRequest request, long pageNum, long pageSize) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        Page<User> userList = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
+        return ResultUtils.success(userList);
+    }
+
+    /**
+     * 用户信息更新
+     *
+     * @param user
+     * @param request
+     * @return
+     */
+    @PostMapping("/update")
+    public Result<Integer> updateUser(@RequestBody User user, HttpServletRequest request) {
+        //验证参数是否为空
+        if (user == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        //鉴权
+        User loginUser = userService.getLogininUser(request);
+        int result = userService.updateUser(user, loginUser);
+        return ResultUtils.success(result);
     }
 
     /**

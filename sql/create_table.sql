@@ -37,3 +37,14 @@ create table user
     tags         varchar(1024)                      null comment '标签列表'
 )
     comment '用户表';
+
+#添加个人简介字段
+alter table user
+    add profile varchar(512) null;
+
+#修改 user 表主键id
+alter table user
+    modify id bigint auto_increment;
+
+alter table user
+    auto_increment = 1;
