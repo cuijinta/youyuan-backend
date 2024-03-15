@@ -43,7 +43,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     /**
      * 盐值 ，用于混淆密码
      */
-    private static final String SALT = "line";
+    private static final String SALT = "qianye";
 
     /**
      * 用户登录状态键

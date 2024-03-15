@@ -66,18 +66,18 @@ public class InsertUsersTest {
         // 分十组
         int j = 0;
         //批量插入数据的大小
-        int batchSize = 5000;
+        int batchSize = 500;
         List<CompletableFuture<Void>> futureList = new ArrayList<>();
-        // i 要根据数据量和插入批量来计算需要循环的次数。（鱼皮这里直接取了个值，会有问题,我这里随便写的）
+        // i 要根据数据量和插入批量来计算需要循环的次数。
         for (int i = 0; i < INSERT_NUM / batchSize; i++) {
             List<User> userList = new ArrayList<>();
             while (true) {
                 j++;
                 User user = new User();
-                user.setUsername("假数据");
-                user.setUserAccount("shier");
-                user.setAvatarUrl("https://c-ssl.dtstatic.com/uploads/blog/202101/11/20210111220519_7da89.thumb.1000_0.jpeg");
-                user.setProfile("fat cat");
+                user.setUsername("假数据" + j);
+                user.setUserAccount("qianye" + j);
+                user.setAvatarUrl("http://s94tz8lzk.hd-bkt.clouddn.com/2024/0304/9fc410baeecc466799e78ac7852cbb87.jpg");
+                user.setProfile("这是一段关于" + user.getUsername() + "的简介");
                 user.setGender(1);
                 user.setUserPassword("12345678");
                 user.setPhone("123456789108");

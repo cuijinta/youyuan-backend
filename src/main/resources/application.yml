@@ -4,9 +4,9 @@ spring:
     # DataSource Config
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/qy_user
-    username: root
-    password: 123456
+    url: jdbc:mysql://47.97.179.125:3306/qianye_youyuan
+    username: xxx
+    password: xxx
   # session 失效时间
   session:
     timeout: 86400
@@ -18,7 +18,7 @@ spring:
   redis:
     port: 6379
     host: 47.97.179.125
-    password: cjt123
+    password: xxx
     database: 3
 
 server:

@@ -109,12 +109,20 @@
             <version>2.6.4</version>
         </dependency>
 
+        <!-- 这是用redis实现分布式session的依赖，只要添加了依赖就会有在登录时将session信息保存到redis -->
         <!-- session-data-redis -->
         <!-- https://mvnrepository.com/artifact/org.springframework.session/spring-session-data-redis -->
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.session</groupId>-->
+<!--            <artifactId>spring-session-data-redis</artifactId>-->
+<!--            <version>2.6.3</version>-->
+<!--        </dependency>-->
+
+        <!--redisson-->
         <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-data-redis</artifactId>
-            <version>2.6.3</version>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.27.2</version>
         </dependency>
     </dependencies>
 
