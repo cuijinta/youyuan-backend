@@ -1,4 +1,4 @@
-package com.qianye.youyuan.model;
+package com.qianye.youyuan.model.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
 
@@ -16,7 +16,7 @@ public class User implements Serializable {
     /**
      *
      */
-    @TableId
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**

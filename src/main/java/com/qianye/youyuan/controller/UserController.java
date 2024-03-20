@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qianye.youyuan.common.Result;
 import com.qianye.youyuan.constant.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.request.UserLoginRequest;
 import com.qianye.youyuan.model.request.UserRegisterRequest;
 import com.qianye.youyuan.service.UserService;
@@ -204,7 +204,7 @@ public class UserController {
         userPage = userService.page(new Page<>(pageNum,pageSize),queryWrapper);
         //写缓存,30s过期
         try {
-            valueOperations.set(redisKey,userPage,86400, TimeUnit.SECONDS);
+            valueOperations.set(redisKey,userPage,30, TimeUnit.SECONDS);
         } catch (Exception e){
             log.error("redis set key error",e);
         }

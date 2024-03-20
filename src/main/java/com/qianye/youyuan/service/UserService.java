@@ -1,6 +1,6 @@
 package com.qianye.youyuan.service;
 
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import javax.servlet.http.HttpServletRequest;

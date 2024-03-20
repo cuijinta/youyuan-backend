@@ -6,7 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.qianye.youyuan.constant.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;

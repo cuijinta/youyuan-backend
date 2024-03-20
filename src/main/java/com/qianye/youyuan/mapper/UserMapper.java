@@ -1,6 +1,6 @@
 package com.qianye.youyuan.mapper;
 
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
 /**

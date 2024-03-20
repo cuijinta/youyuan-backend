@@ -1,6 +1,6 @@
 package com.qianye.youyuan.service;
 
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

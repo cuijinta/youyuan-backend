@@ -1,7 +1,5 @@
 package com.qianye.youyuan.service;
 
-import com.qianye.youyuan.model.User;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;

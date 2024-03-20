@@ -1,6 +1,6 @@
 package com.qianye.youyuan.service;
 
-import com.qianye.youyuan.model.User;
+import com.qianye.youyuan.model.domain.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.StopWatch;
@@ -62,7 +62,7 @@ public class InsertUsersTest {
     public void doConcurrencyInsertUser() {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
-        final int INSERT_NUM = 100000;
+        final int INSERT_NUM = 10000;
         // 分十组
         int j = 0;
         //批量插入数据的大小
@@ -79,7 +79,7 @@ public class InsertUsersTest {
                 user.setAvatarUrl("http://s94tz8lzk.hd-bkt.clouddn.com/2024/0304/9fc410baeecc466799e78ac7852cbb87.jpg");
                 user.setProfile("这是一段关于" + user.getUsername() + "的简介");
                 user.setGender(1);
-                user.setUserPassword("12345678");
+                user.setUserPassword("f263c182a55a231f7cd899eb76d23b13");
                 user.setPhone("123456789108");
                 user.setEmail("22288999@qq.com");
                 user.setUserStatus(0);
