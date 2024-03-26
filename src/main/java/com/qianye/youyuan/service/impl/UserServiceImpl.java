@@ -249,7 +249,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return
      */
     @Override
-    public User getLogininUser(HttpServletRequest request) {
+    public User getLoginUser(HttpServletRequest request) {
         if (request == null){
             return null;
         }

@@ -141,7 +141,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
             if (id != null && id > 0) {
                 queryWrapper.eq("id", id);
             }
-            //因为上面是拿的vo,所以这里需要添加
             List<Long> idList = teamQuery.getIdList();
             if (CollectionUtils.isNotEmpty(idList)) {
                 queryWrapper.in("id", idList);
@@ -168,18 +167,19 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
             if (userId != null && userId > 0) {
                 queryWrapper.eq("userId", userId);
             }
-            // 根据状态来查询
-            Integer status = teamQuery.getStatus();
-            TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
-            if (statusEnum == null) {
-                statusEnum = TeamStatusEnum.PUBLIC;
+            if(teamQuery.getStatus() != null) {
+                // 根据状态来查询
+                Integer status = teamQuery.getStatus();
+                TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
+                if (statusEnum == null) {
+                    statusEnum = TeamStatusEnum.PUBLIC;
+                }
+                if (!isAdmin && statusEnum.equals(TeamStatusEnum.PRIVATE)) {
+                    throw new GlobalException(ErrorCode.NO_AUTH);
+                }
+                queryWrapper.eq("status", statusEnum.getValue());
             }
-            if (!isAdmin && statusEnum.equals(TeamStatusEnum.PRIVATE)) {
-                throw new GlobalException(ErrorCode.NO_AUTH);
-            }
-            queryWrapper.eq("status", statusEnum.getValue());
         }
-
         // 不展示已过期的队伍
         // expireTime is null or expireTime > now()
         queryWrapper.and(qw -> qw.gt("expireTime", new Date()).or().isNull("expireTime"));
@@ -187,7 +187,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
         if (CollectionUtils.isEmpty(teamList)) {
             return new ArrayList<>();
         }
-
         List<TeamUserVO> teamUserVOList = new ArrayList<>();
         // 关联查询创建人的用户信息
         for (Team team : teamList) {
@@ -207,6 +206,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
             teamUserVOList.add(teamUserVO);
         }
         return teamUserVOList;
+
     }
 
     /**
@@ -398,8 +398,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
         Team team = getById(id);
         long teamId = team.getId();
         // 校验你是不是队伍的队长
-        if (team.getUserId() != loginUser.getId()) {
-            throw new GlobalException(ErrorCode.NO_AUTH, "无访问权限");
+        if (!team.getUserId().equals(loginUser.getId())) {
+            throw new GlobalException(ErrorCode.NO_AUTH, "无权解散！");
         }
         // 移除所有加入队伍的关联信息
         QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();

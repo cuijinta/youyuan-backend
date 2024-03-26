@@ -10,17 +10,13 @@ import com.qianye.youyuan.model.request.UserLoginRequest;
 import com.qianye.youyuan.model.request.UserRegisterRequest;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.utils.ResultUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.qianye.youyuan.constant.UserConstant.ADMIN_ROLE;
@@ -34,14 +30,10 @@ import static com.qianye.youyuan.constant.UserConstant.USER_LOGIN_STATUS;
 @RestController
 @RequestMapping("/user")
 @CrossOrigin(origins = {"http://localhost:5173"}) //配置跨域
-@Slf4j
 public class UserController {
 
     @Autowired
     private UserService userService;
-
-    @Autowired
-    private RedisTemplate redisTemplate;
 
     /**
      * 用户注册
@@ -82,7 +74,7 @@ public class UserController {
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
         if (StringUtils.isAllBlank(userAccount, userPassword)) {
-            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "用户用或密码错误");
         }
         User user = userService.doLogin(userAccount, userPassword, request);
         return ResultUtils.success(user);
@@ -191,24 +183,9 @@ public class UserController {
      */
     @GetMapping("/recommend")
     public Result<Page<User>> recommendUsers(HttpServletRequest request, long pageNum, long pageSize) {
-        User logininUser = userService.getLogininUser(request);
-        String redisKey = String.format("youyuan:user:recommend:%s",logininUser.getId());
-        ValueOperations valueOperations = redisTemplate.opsForValue();
-        //如果有缓存，直接读取
-        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
-        if (userPage != null){
-            return ResultUtils.success(userPage);
-        }
-        //无缓存，查数据库
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        userPage = userService.page(new Page<>(pageNum,pageSize),queryWrapper);
-        //写缓存,30s过期
-        try {
-            valueOperations.set(redisKey,userPage,30, TimeUnit.SECONDS);
-        } catch (Exception e){
-            log.error("redis set key error",e);
-        }
-        return ResultUtils.success(userPage);
+        Page<User> userList = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
+        return ResultUtils.success(userList);
     }
 
     /**
@@ -225,7 +202,7 @@ public class UserController {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
         //鉴权
-        User loginUser = userService.getLogininUser(request);
+        User loginUser = userService.getLoginUser(request);
         int result = userService.updateUser(user, loginUser);
         return ResultUtils.success(result);
     }
