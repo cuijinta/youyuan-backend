@@ -219,4 +219,19 @@ public class UserController {
         User user = (User) userObject;
         return user != null && user.getUserRole() == ADMIN_ROLE;
     }
+
+    /**
+     * 获取最匹配用户列表
+     * @param num 数量
+     * @param request
+     * @return
+     */
+    @GetMapping("/match")
+    public Result<List<User>> matchUsers(long num, HttpServletRequest request) {
+        if(num <= 0 || num > 20) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.matchUsers(num, user));
+    }
 }
