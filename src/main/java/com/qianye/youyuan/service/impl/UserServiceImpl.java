@@ -12,6 +12,7 @@ import com.qianye.youyuan.mapper.UserMapper;
 import com.qianye.youyuan.utils.AlgorithmUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -69,7 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "密码长度不小于8位");
         }
-        if(code.length() > 5) {
+        if (code.length() > 5) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "用户编号不能超过5位");
         }
 
@@ -97,7 +98,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         QueryWrapper<User> queryWrapper1 = new QueryWrapper<>();
         queryWrapper1.eq("code", code);
         count = userMapper.selectCount(queryWrapper1);
-        if(count >0) {
+        if (count > 0) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "编号不能重复");
         }
 
@@ -167,6 +168,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 按标签名查找用户 (内存过滤)
+     *
      * @param tagNameList 标签列表
      * @return 包含所有标签的用户
      */
@@ -196,23 +198,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     *  用户信息修改
+     * 用户信息修改
+     *
      * @param user
      * @return
      */
     @Override
-    public int updateUser(User user,User loginUser) {
+    public int updateUser(User user, User loginUser) {
         long userId = user.getId();
-        if (userId <= 0){
+        if (userId <= 0) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
         //如果是管理员，允许更新任意用户
         //如果不是管理员，只允许更新自己的信息
-        if (!isAdmin(loginUser) && userId != loginUser.getId()){
+        if (!isAdmin(loginUser) && userId != loginUser.getId()) {
             throw new GlobalException(ErrorCode.NO_AUTH);
         }
         User user1 = userMapper.selectById(userId);
-        if (user1 == null){
+        if (user1 == null) {
             throw new GlobalException(ErrorCode.NULL_ERROR);
         }
         return userMapper.updateById(user);
@@ -242,16 +245,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     * 匹配用户
+     * 匹配用户(SortedMap 排序版)
      *
      * @param num
      * @param loginUser
      * @return
      */
-    @Override
-    public List<User> matchUsers(long num, User loginUser) {
-//		这里查了所有用户，近100万条
+    @Deprecated
+    public List<User> matchUser(long num, User loginUser) {
+//		这里查了所有用户，近10万条
         List<User> userList = this.list();
+
         String tags = loginUser.getTags();
         Gson gson = new Gson();
         List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {
@@ -259,24 +263,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         System.out.println(tagList);
         // 用户列表的下表 => 相似度
         SortedMap<Integer, Long> indexDistanceMap = new TreeMap<>();
-        for (int i = 0; i <userList.size(); i++) {
+        for (int i = 0; i < userList.size(); i++) {
             User user = userList.get(i);
             String userTags = user.getTags();
             //无标签的
-            if (StringUtils.isBlank(userTags)){
+            if (StringUtils.isBlank(userTags)) {
                 continue;
             }
             List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
             }.getType());
             //计算分数
             long distance = AlgorithmUtils.minDistance(tagList, userTagList);
-            indexDistanceMap.put(i,distance);
+            indexDistanceMap.put(i, distance);
         }
         //下面这个是打印前num个的id和分数
         List<User> userListVo = new ArrayList<>();
         int i = 0;
-        for (Map.Entry<Integer,Long> entry : indexDistanceMap.entrySet()){
-            if (i > num){
+        for (Map.Entry<Integer, Long> entry : indexDistanceMap.entrySet()) {
+            if (i > num) {
                 break;
             }
             User user = userList.get(entry.getKey());
@@ -288,17 +292,75 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     /**
-     *  获取当前用户信息
+     * 推荐匹配用户
+     *
+     * @param num
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public List<User> matchUsers(long num, User loginUser) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.isNotNull("tags");
+        queryWrapper.select("id", "tags");
+        List<User> userList = this.list(queryWrapper);
+
+        String tags = loginUser.getTags();
+        Gson gson = new Gson();
+        List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {
+        }.getType());
+        // 用户列表的下表 => 相似度'
+        List<Pair<User, Long>> list = new ArrayList<>();
+        // 依次计算当前用户和所有用户的相似度
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            //无标签的 或当前用户为自己
+            if (StringUtils.isBlank(userTags) || user.getId() == loginUser.getId()) {
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+            //计算分数
+            long distance = AlgorithmUtils.minDistance(tagList, userTagList);
+            list.add(new Pair<>(user, distance));
+        }
+        //按编辑距离有小到大排序
+        List<Pair<User, Long>> topUserPairList = list.stream()
+                .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
+                .collect(Collectors.toList());
+        //有顺序的userID列表
+        List<Long> userListVo = topUserPairList.stream().map(pari -> pari.getKey().getId()).collect(Collectors.toList());
+
+        //根据id查询user完整信息
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id", userListVo);
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper).stream()
+                .map(user -> getSafetyUser(user))
+                .collect(Collectors.groupingBy(User::getId));
+
+        // 因为上面查询打乱了顺序，这里根据上面有序的userID列表赋值
+        List<User> finalUserList = new ArrayList<>();
+        for (Long userId : userListVo) {
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
+        return finalUserList;
+    }
+
+    /**
+     * 获取当前用户信息
+     *
      * @param request
      * @return
      */
     @Override
     public User getLoginUser(HttpServletRequest request) {
-        if (request == null){
+        if (request == null) {
             return null;
         }
         Object userObj = request.getSession().getAttribute(USER_LOGIN_STATUS);
-        if (userObj == null){
+        if (userObj == null) {
             throw new GlobalException(ErrorCode.NO_AUTH);
         }
         return (User) userObj;
@@ -306,19 +368,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     /**
      * 根据标签搜索用户（SQL 查询）
+     *
      * @param tagNameList 标签列表
      * @return 包含所有标签的用户
      */
     @Deprecated
     private List<User> searchUserBySQL(List<String> tagNameList) {
-        if(CollectionUtils.isEmpty(tagNameList)) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
 
         //方式1：sql查询
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         //拼接查询sql
-        for(String tagName : tagNameList) {
+        for (String tagName : tagNameList) {
             queryWrapper = queryWrapper.like("tags", tagName);
         }
         List<User> userList = userMapper.selectList(queryWrapper);
@@ -334,7 +397,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public User getSafetyUser(User user) {
-        if(user == null) {
+        if (user == null) {
             return null;
         }
         User safetyUser = new User();
