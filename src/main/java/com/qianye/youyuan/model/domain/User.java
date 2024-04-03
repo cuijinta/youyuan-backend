@@ -97,4 +97,13 @@ public class User implements Serializable {
      * 个人简介
      */
     private String profile;
+
+    /**
+     * 队伍id列表
+     */
+    private String teamIds;
+    /**
+     * 添加的好友
+     */
+    private String userIds;
 }

@@ -3,7 +3,7 @@ package com.qianye.youyuan.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qianye.youyuan.common.Result;
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.request.UserLoginRequest;

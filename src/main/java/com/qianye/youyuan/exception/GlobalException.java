@@ -1,6 +1,6 @@
 package com.qianye.youyuan.exception;
 
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 
 /**
  * @Author 浅夜

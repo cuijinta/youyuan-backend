@@ -1,6 +1,6 @@
 package com.qianye.youyuan.common;
 
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 
 import java.io.Serializable;
 
