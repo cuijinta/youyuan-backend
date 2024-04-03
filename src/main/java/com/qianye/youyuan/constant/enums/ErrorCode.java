@@ -1,4 +1,4 @@
-package com.qianye.youyuan.constant;
+package com.qianye.youyuan.constant.enums;
 
 import lombok.Getter;
 

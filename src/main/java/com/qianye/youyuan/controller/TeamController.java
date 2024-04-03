@@ -2,14 +2,13 @@ package com.qianye.youyuan.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.qianye.youyuan.common.Result;
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.Team;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.domain.UserTeam;
 import com.qianye.youyuan.model.request.*;
 import com.qianye.youyuan.model.vo.TeamUserVO;
-import com.qianye.youyuan.model.vo.UserVO;
 import com.qianye.youyuan.service.TeamService;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.service.UserTeamService;

@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.service.UserService;
@@ -70,7 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "密码长度不小于8位");
         }
-        if (code.length() > 5) {
+        if (code != null && code.length() > 5) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "用户编号不能超过5位");
         }
 

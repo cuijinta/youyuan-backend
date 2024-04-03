@@ -1,7 +1,7 @@
 package com.qianye.youyuan.utils;
 
 import com.qianye.youyuan.common.Result;
-import com.qianye.youyuan.constant.ErrorCode;
+import com.qianye.youyuan.constant.enums.ErrorCode;
 
 /**
  * @Author 浅夜
@@ -19,6 +19,17 @@ public class ResultUtils {
      */
     public static <T> Result<T> success(T data) {
         return new Result<>(ErrorCode.SUCCESS.getCode(), ErrorCode.SUCCESS.getMessage(), data);
+    }
+
+    /**
+     * 成功(自定义message)
+     *
+     * @param data
+     * @param <T>
+     * @return
+     */
+    public static <T> Result<T> success(T data, String message) {
+        return new Result<>(ErrorCode.SUCCESS.getCode(), message, data);
     }
 
     /**
