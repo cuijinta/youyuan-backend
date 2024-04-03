@@ -15,8 +15,9 @@ public enum ErrorCode {
     NULL_ERROR(40001, "请求数据为空", ""),
     NOT_LOGIN(40100, "未登录", ""),
     NO_AUTH(40101, "无权限", ""),
-    SYSTEM_ERROR(50000, "系统内部异常", "");
-
+    SYSTEM_ERROR(50000, "系统内部异常", ""),
+    FILE_TYPE_ERROR(50005, "文件类型异常", "类型不允许"),
+    FILE_UPLOAD_ERROR(50006, "文件上传失败", "上传失败");
 
     /**
      * 状态码
