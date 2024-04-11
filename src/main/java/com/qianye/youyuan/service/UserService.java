@@ -2,6 +2,7 @@ package com.qianye.youyuan.service;
 
 import com.qianye.youyuan.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.qianye.youyuan.model.request.UserQueryRequest;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -92,4 +93,16 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> matchUsers(long num, User user);
+
+    String redisFormat(Long id);
+
+    List<User> userQuery(UserQueryRequest userQueryRequest, HttpServletRequest request);
+
+    void isLogin(HttpServletRequest request);
+
+    List<User> getFriendsById(User currentUser);
+
+    boolean deleteFriend(User currentUser, Long id);
+
+    List<User> searchFriend(UserQueryRequest userQueryRequest, User currentUser);
 }

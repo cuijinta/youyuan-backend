@@ -16,11 +16,11 @@ public class PathUtils {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MMdd/");
         String datePath = sdf.format(new Date());
         //uuid作为文件名
-        String uuid = "youyuan" + UUID.randomUUID().toString().replaceAll("-", "");
+        String uuid = UUID.randomUUID().toString().replaceAll("-", "");
         //后缀和文件后缀一致
         int index = fileName.lastIndexOf(".");
         // test.jpg -> .jpg
         String fileType = fileName.substring(index);
-        return new StringBuilder().append(datePath).append(uuid).append(fileType).toString();
+        return new StringBuilder().append("youyuan/").append(datePath).append(uuid).append(fileType).toString();
     }
 }

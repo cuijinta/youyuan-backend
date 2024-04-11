@@ -130,5 +130,7 @@ public class FriendsController {
         boolean agreeToApplyStatus = friendsService.agreeToApply(loginUser, fromId);
         return ResultUtils.success(agreeToApplyStatus);
     }
+
+
 }
 

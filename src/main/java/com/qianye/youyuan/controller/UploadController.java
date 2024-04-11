@@ -20,7 +20,7 @@ import javax.annotation.Resource;
  * @Version 1.0
  */
 @RestController
-@RequestMapping
+@RequestMapping("/file")
 @Api(tags = "文件上传相关")
 public class UploadController {
 
@@ -32,8 +32,14 @@ public class UploadController {
      * @param img 图片实体
      * @return 上传结果
      */
+//    @PostMapping("/upload")
+//    public Result<?> uploadImg(@RequestParam("img") MultipartFile img) {
+//        if(ObjectUtils.isEmpty(img)) return ResultUtils.error(ErrorCode.PARAMS_ERROR, "参数不能为空");
+//        return uploadService.uploadImg(img);
+//    }
+
     @PostMapping("/upload")
-    public Result<?> uploadImg(@RequestParam("img") MultipartFile img) {
+    public Result<?> uploadImg(@RequestParam("file") MultipartFile img) {
         if(ObjectUtils.isEmpty(img)) return ResultUtils.error(ErrorCode.PARAMS_ERROR, "参数不能为空");
         return uploadService.uploadImg(img);
     }

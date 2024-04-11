@@ -1,5 +1,7 @@
 package com.qianye.youyuan.controller;
 
+import cn.hutool.core.util.RandomUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qianye.youyuan.common.Result;
@@ -7,16 +9,23 @@ import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.request.UserLoginRequest;
+import com.qianye.youyuan.model.request.UserQueryRequest;
 import com.qianye.youyuan.model.request.UserRegisterRequest;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.utils.ResultUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.qianye.youyuan.constant.UserConstant.ADMIN_ROLE;
@@ -30,10 +39,14 @@ import static com.qianye.youyuan.constant.UserConstant.USER_LOGIN_STATUS;
 @RestController
 @RequestMapping("/user")
 @CrossOrigin(origins = {"http://localhost:5173"}) //配置跨域
+@Slf4j
 public class UserController {
 
-    @Autowired
+    @Resource
     private UserService userService;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 用户注册
@@ -95,6 +108,15 @@ public class UserController {
         return ResultUtils.success(userLogout);
     }
 
+    @GetMapping("/{id}")
+    public Result<User> getUserById(@PathVariable("id") Integer id) {
+        if (id == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.getSafetyUser(this.userService.getById(id));
+        return ResultUtils.success(user);
+    }
+
     /**
      * 获取当前用户信息
      *
@@ -122,19 +144,62 @@ public class UserController {
      * @param request  请求体
      * @return
      */
-    @GetMapping("/search")
-    public Result<List<User>> searchUsers(String username, HttpServletRequest request) {
-        if (!isAdmin(request)) {
-            throw new GlobalException(ErrorCode.NO_AUTH);
+    @PostMapping("/search")
+    public Result<List<User>> userQuery(@RequestBody UserQueryRequest userQueryRequest, HttpServletRequest request) {
+        if (userQueryRequest == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "用户不存在");
         }
+        List<User> users = userService.userQuery(userQueryRequest, request);
+        return ResultUtils.success(users);
+    }
 
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        if (!StringUtils.isBlank(username)) {
-            queryWrapper.like("username", username);
+    @GetMapping("/search")
+    public Result<List<User>> searchList(HttpServletRequest request) {
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        // 如果有缓存，直接读缓存
+        User loginUser = (User) request.getSession().getAttribute(USER_LOGIN_STATUS);
+        if (loginUser != null) {
+            List<User> userList = (List<User>) valueOperations.get(userService.redisFormat(loginUser.getId()));
+            if (userList != null) {
+                // 打乱并固定第一个用户
+                return ResultUtils.success(fixTheFirstUser(userList));
+            }
+        } else {
+            List<User> userList = (List<User>) valueOperations.get("youyuan:user:notLogin");
+            if (userList != null) {
+                // 打乱并固定第一个用户
+                return ResultUtils.success(fixTheFirstUser(userList));
+            }
         }
-        List<User> userList = userService.list(queryWrapper);
-        List<User> safetyUserList = userList.stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
-        return ResultUtils.success(safetyUserList);
+        List<User> result = null;
+        try {
+            if (loginUser != null) {
+                List<User> userList = userService.list();
+                // 打乱并固定第一个用户
+                result = fixTheFirstUser(userList).stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
+                redisTemplate.opsForValue().set(userService.redisFormat(loginUser.getId()), result, 1 + RandomUtil.randomInt(1, 2) / 10, TimeUnit.MINUTES);
+            } else {
+                // 未登录只能查看20条
+                Page<User> userPage = new Page<>(1, 30);
+                LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
+                Page<User> page = userService.page(userPage, userLambdaQueryWrapper);
+                result = fixTheFirstUser(page.getRecords()).stream().map(user -> userService.getSafetyUser(user)).collect(Collectors.toList());
+                redisTemplate.opsForValue().set("youyuan:user:notLogin", result, 10, TimeUnit.MINUTES);
+            }
+        } catch (Exception e) {
+            log.error("redis set key error", e);
+        }
+        return ResultUtils.success(result);
+    }
+
+    private List<User> fixTheFirstUser(List<User> userList) {
+        // 取出第一个元素
+        User firstUser = userList.get(0);
+        // 将剩下的元素打乱顺序
+        userList = userList.subList(1, userList.size());
+        Collections.shuffle(userList);
+        userList.add(0, firstUser);
+        return userList;
     }
 
     /**
@@ -197,14 +262,13 @@ public class UserController {
      */
     @PostMapping("/update")
     public Result<Integer> updateUser(@RequestBody User user, HttpServletRequest request) {
-        //验证参数是否为空
         if (user == null) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
-        //鉴权
-        User loginUser = userService.getLoginUser(request);
-        int result = userService.updateUser(user, loginUser);
-        return ResultUtils.success(result);
+        User currentUser = userService.getLoginUser(request);
+        int updateId = userService.updateUser(user, currentUser);
+        redisTemplate.delete(userService.redisFormat(currentUser.getId()));
+        return ResultUtils.success(updateId);
     }
 
     /**
@@ -233,5 +297,32 @@ public class UserController {
         }
         User user = userService.getLoginUser(request);
         return ResultUtils.success(userService.matchUsers(num, user));
+    }
+
+    @GetMapping("/friends")
+    public Result<List<User>> getFriends(HttpServletRequest request) {
+        User currentUser = userService.getLoginUser(request);
+        List<User> getUser = userService.getFriendsById(currentUser);
+        return ResultUtils.success(getUser);
+    }
+
+    @PostMapping("/deleteFriend/{id}")
+    public Result<Boolean> deleteFriend(@PathVariable("id") Long id, HttpServletRequest request) {
+        if (id == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "好友不存在");
+        }
+        User currentUser = userService.getLoginUser(request);
+        boolean deleteFriend = userService.deleteFriend(currentUser, id);
+        return ResultUtils.success(deleteFriend);
+    }
+
+    @PostMapping("/searchFriend")
+    public Result<List<User>> searchFriend(@RequestBody UserQueryRequest userQueryRequest, HttpServletRequest request) {
+        if (userQueryRequest == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "用户不存在");
+        }
+        User currentUser = userService.getLoginUser(request);
+        List<User> searchFriend = userService.searchFriend(userQueryRequest, currentUser);
+        return ResultUtils.success(searchFriend);
     }
 }

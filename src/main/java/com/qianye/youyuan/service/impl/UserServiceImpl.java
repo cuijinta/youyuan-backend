@@ -1,5 +1,6 @@
 package com.qianye.youyuan.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
@@ -7,6 +8,7 @@ import com.google.gson.reflect.TypeToken;
 import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
+import com.qianye.youyuan.model.request.UserQueryRequest;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.mapper.UserMapper;
 import com.qianye.youyuan.utils.AlgorithmUtils;
@@ -17,14 +19,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
-
 import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
 import static com.qianye.youyuan.constant.UserConstant.ADMIN_ROLE;
+import static com.qianye.youyuan.utils.StringUtils.stringJsonListToLongSet;
 
 /**
  * @author 浅夜光芒万丈
@@ -204,18 +205,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return
      */
     @Override
-    public int updateUser(User user, User loginUser) {
+    public int updateUser(User user, User currentUser) {
         long userId = user.getId();
         if (userId <= 0) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
-        //如果是管理员，允许更新任意用户
-        //如果不是管理员，只允许更新自己的信息
-        if (!isAdmin(loginUser) && userId != loginUser.getId()) {
-            throw new GlobalException(ErrorCode.NO_AUTH);
+        if (!StringUtils.isAnyBlank(user.getProfile()) && user.getProfile().length() > 30) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "简介不能超过30个字符");
         }
-        User user1 = userMapper.selectById(userId);
-        if (user1 == null) {
+        if (!StringUtils.isAnyBlank(user.getUsername()) && user.getUsername().length() > 20) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "昵称不能超过20个字符");
+        }
+        if (!StringUtils.isAnyBlank(user.getPhone()) && user.getPhone().length() > 18) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "联系方式不能超过18个字符");
+        }
+        // 如果是管理员，允许更新任意用户
+        // 如果不是管理员，只允许更新当前（自己的）信息
+        if (!isAdmin(currentUser) && userId != currentUser.getId()) {
+            throw new GlobalException(ErrorCode.NO_AUTH, "无权限");
+        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userAccount", user.getUserAccount());
+        long count = this.count(queryWrapper);
+        if (count > 0) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "账号已存在  请重新输入");
+        }
+        User oldUser = userMapper.selectById(userId);
+        if (oldUser == null) {
             throw new GlobalException(ErrorCode.NULL_ERROR);
         }
         return userMapper.updateById(user);
@@ -348,6 +364,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return finalUserList;
     }
 
+    @Override
+    public String redisFormat(Long key) {
+        return String.format("youyuan:user:search:%s", key);
+    }
+
+    @Override
+    public List<User> userQuery(UserQueryRequest userQueryRequest, HttpServletRequest request) {
+        isLogin(request);
+        String searchText = userQueryRequest.getSearchText();
+        LambdaQueryWrapper<User> userLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        userLambdaQueryWrapper.like(User::getUsername, searchText).or().like(User::getProfile, searchText);
+        return this.list(userLambdaQueryWrapper);
+    }
+
     /**
      * 获取当前用户信息
      *
@@ -410,6 +440,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safetyUser.setUserRole(user.getUserRole());
         safetyUser.setCreateTime(user.getCreateTime());
         safetyUser.setUserStatus(user.getUserStatus());
+        safetyUser.setUserIds(user.getUserIds());
+        safetyUser.setTeamIds(user.getTeamIds());
         safetyUser.setEmail(user.getEmail());
         safetyUser.setCode(user.getCode());
         safetyUser.setTags(user.getTags());
@@ -428,6 +460,59 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         request.getSession().removeAttribute(USER_LOGIN_STATUS);
         return 1;
     }
+
+
+    @Override
+    public void isLogin(HttpServletRequest request) {
+        if (request == null) {
+            throw new GlobalException(ErrorCode.NOT_LOGIN, "请先登录");
+        }
+        Object objUser = request.getSession().getAttribute(USER_LOGIN_STATUS);
+        User currentUser = (User) objUser;
+        if (currentUser == null) {
+            throw new GlobalException(ErrorCode.NOT_LOGIN, "请先登录");
+        }
+    }
+
+    @Override
+    public List<User> getFriendsById(User currentUser) {
+        User loginUser = this.getById(currentUser.getId());
+        Set<Long> friendsId = stringJsonListToLongSet(loginUser.getUserIds());
+        return friendsId.stream().map(user -> this.getSafetyUser(this.getById(user))).collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean deleteFriend(User currentUser, Long id) {
+        User loginUser = this.getById(currentUser.getId());
+        User friendUser = this.getById(id);
+        Set<Long> friendsId = stringJsonListToLongSet(loginUser.getUserIds());
+        Set<Long> fid = stringJsonListToLongSet(friendUser.getUserIds());
+        friendsId.remove(id);
+        fid.remove(loginUser.getId());
+        String friends = new Gson().toJson(friendsId);
+        String fids = new Gson().toJson(fid);
+        loginUser.setUserIds(friends);
+        friendUser.setUserIds(fids);
+        return this.updateById(loginUser) && this.updateById(friendUser);
+    }
+
+    @Override
+    public List<User> searchFriend(UserQueryRequest userQueryRequest, User currentUser) {
+        String searchText = userQueryRequest.getSearchText();
+        User user = this.getById(currentUser.getId());
+        Set<Long> friendsId = stringJsonListToLongSet(user.getUserIds());
+        List<User> users = new ArrayList<>();
+        Collections.shuffle(users);
+        friendsId.forEach(id -> {
+            User u = this.getById(id);
+            if (u.getUsername().contains(searchText)) {
+                users.add(u);
+            }
+        });
+        return users;
+    }
+
+
 }
 
 
