@@ -1,6 +1,8 @@
 package com.qianye.youyuan.service.impl;
 
+import cn.hutool.core.util.RandomUtil;
 import com.alibaba.excel.util.StringUtils;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -12,10 +14,11 @@ import com.qianye.youyuan.model.domain.Team;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.domain.UserTeam;
 import com.qianye.youyuan.model.request.TeamJoinRequest;
-import com.qianye.youyuan.model.request.TeamQuery;
+import com.qianye.youyuan.model.request.TeamQueryRequest;
 import com.qianye.youyuan.model.request.TeamQuitRequest;
 import com.qianye.youyuan.model.request.TeamUpdateRequest;
 import com.qianye.youyuan.model.vo.TeamUserVO;
+import com.qianye.youyuan.model.vo.TeamVO;
 import com.qianye.youyuan.model.vo.UserVO;
 import com.qianye.youyuan.service.TeamService;
 import com.qianye.youyuan.service.UserService;
@@ -24,14 +27,18 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static com.qianye.youyuan.utils.StringUtils.stringJsonListToLongSet;
 
 /**
  * 队伍(Team)表服务实现类
@@ -50,6 +57,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
 
     @Autowired
     RedissonClient redissonClient;
+    
+    @Resource
+    RedisTemplate redisTemplate;
 
 
     @Transactional(rollbackFor = Exception.class)
@@ -134,48 +144,48 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
      * 5. 关联查询已加入队伍的用户信息
      * 6. 关联查询已加入队伍的用户信息
      *
-     * @param teamQuery
+     * @param teamQueryRequest
      * @param isAdmin
      * @return
      */
     @Override
-    public List<TeamUserVO> listTeams(TeamQuery teamQuery, boolean isAdmin) {
+    public List<TeamVO> listTeams(TeamQueryRequest teamQueryRequest, boolean isAdmin) {
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
         // 组合查询条件
-        if (teamQuery != null) {
-            Long id = teamQuery.getId();
+        if (teamQueryRequest != null) {
+            Long id = teamQueryRequest.getId();
             if (id != null && id > 0) {
                 queryWrapper.eq("id", id);
             }
-            List<Long> idList = teamQuery.getIdList();
+            List<Long> idList = teamQueryRequest.getIdList();
             if (CollectionUtils.isNotEmpty(idList)) {
                 queryWrapper.in("id", idList);
             }
-            String searchText = teamQuery.getSearchText();
+            String searchText = teamQueryRequest.getSearchText();
             if (StringUtils.isNotBlank(searchText)) {
                 queryWrapper.and(qw -> qw.like("name", searchText).or().like("description", searchText));
             }
-            String name = teamQuery.getName();
+            String name = teamQueryRequest.getName();
             if (StringUtils.isNotBlank(name)) {
                 queryWrapper.like("name", name);
             }
-            String description = teamQuery.getDescription();
+            String description = teamQueryRequest.getDescription();
             if (StringUtils.isNotBlank(description)) {
                 queryWrapper.like("description", description);
             }
-            Integer maxNum = teamQuery.getMaxNum();
+            Integer maxNum = teamQueryRequest.getMaxNum();
             // 查询最大人数相等的
             if (maxNum != null && maxNum > 0) {
                 queryWrapper.eq("maxNum", maxNum);
             }
-            Long userId = teamQuery.getUserId();
+            Long userId = teamQueryRequest.getUserId();
             // 根据创建人来查询
             if (userId != null && userId > 0) {
                 queryWrapper.eq("userId", userId);
             }
-            if(teamQuery.getStatus() != null) {
+            if(teamQueryRequest.getStatus() != null) {
                 // 根据状态来查询
-                Integer status = teamQuery.getStatus();
+                Integer status = teamQueryRequest.getStatus();
                 TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
                 if (statusEnum == null) {
                     statusEnum = TeamStatusEnum.PUBLIC;
@@ -189,11 +199,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
         // 不展示已过期的队伍
         // expireTime is null or expireTime > now()
         queryWrapper.and(qw -> qw.gt("expireTime", new Date()).or().isNull("expireTime"));
+        queryWrapper.orderByDesc("createTime");
         List<Team> teamList = this.list(queryWrapper);
         if (CollectionUtils.isEmpty(teamList)) {
             return new ArrayList<>();
         }
-        List<TeamUserVO> teamUserVOList = new ArrayList<>();
+        List<TeamVO> teamVOList = new ArrayList<>();
         // 关联查询创建人的用户信息
         for (Team team : teamList) {
             Long userId = team.getUserId();
@@ -201,17 +212,27 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
                 continue;
             }
             User user = userService.getById(userId);
-            TeamUserVO teamUserVO = new TeamUserVO();
-            BeanUtils.copyProperties(team, teamUserVO);
+            TeamVO teamVO = new TeamVO();
+            BeanUtils.copyProperties(team, teamVO);
             // 脱敏用户信息
             if (user != null) {
-                UserVO userVO = new UserVO();
-                BeanUtils.copyProperties(user, userVO);
-                teamUserVO.setCreateUser(userVO);
+//                UserVO userVO = new UserVO();
+//                BeanUtils.copyProperties(user, userVO);
+                teamVO.setUser(userService.getSafetyUser(user));
             }
-            teamUserVOList.add(teamUserVO);
+            Set<User> userSet = new HashSet<>();
+            LambdaQueryWrapper<UserTeam> queryWrapper1 = new LambdaQueryWrapper<>();
+            queryWrapper1.eq(UserTeam::getTeamId, team.getId()).select(UserTeam::getUserId);
+            List<UserTeam> userIdList = userTeamService.list(queryWrapper1);
+            if(CollectionUtils.isNotEmpty(userIdList)) {
+                userIdList.forEach(userTeam -> {
+                    userSet.add(userService.getSafetyUser(userService.getById((userTeam.getUserId()))));
+                });
+            }
+            teamVO.setUserSet(userSet);
+            teamVOList.add(teamVO);
         }
-        return teamUserVOList;
+        return teamVOList;
 
     }
 
@@ -440,47 +461,47 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
 
     /**
      * 查当前用户创建的队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
     @Override
-    public List<TeamUserVO> listTeams(TeamQuery teamQuery) {
+    public List<TeamVO> listTeams(TeamQueryRequest teamQueryRequest) {
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
         // 组合查询条件
-        if (teamQuery != null) {
-            Long id = teamQuery.getId();
+        if (teamQueryRequest != null) {
+            Long id = teamQueryRequest.getId();
             if (id != null && id > 0) {
                 queryWrapper.eq("id", id);
             }
             //因为上面是拿的vo,所以这里需要添加
-            List<Long> idList = teamQuery.getIdList();
+            List<Long> idList = teamQueryRequest.getIdList();
             if (CollectionUtils.isNotEmpty(idList)) {
                 queryWrapper.in("id", idList);
             }
-            String searchText = teamQuery.getSearchText();
+            String searchText = teamQueryRequest.getSearchText();
             if (StringUtils.isNotBlank(searchText)) {
                 queryWrapper.and(qw -> qw.like("name", searchText).or().like("description", searchText));
             }
-            String name = teamQuery.getName();
+            String name = teamQueryRequest.getName();
             if (StringUtils.isNotBlank(name)) {
                 queryWrapper.like("name", name);
             }
-            String description = teamQuery.getDescription();
+            String description = teamQueryRequest.getDescription();
             if (StringUtils.isNotBlank(description)) {
                 queryWrapper.like("description", description);
             }
-            Integer maxNum = teamQuery.getMaxNum();
+            Integer maxNum = teamQueryRequest.getMaxNum();
             // 查询最大人数相等的
             if (maxNum != null && maxNum > 0) {
                 queryWrapper.eq("maxNum", maxNum);
             }
-            Long userId = teamQuery.getUserId();
+            Long userId = teamQueryRequest.getUserId();
             // 根据创建人来查询
             if (userId != null && userId > 0) {
                 queryWrapper.eq("userId", userId);
             }
             // 根据状态来查询
-            Integer status = teamQuery.getStatus();
+            Integer status = teamQueryRequest.getStatus();
             TeamStatusEnum statusEnum = TeamStatusEnum.getEnumByValue(status);
 //            if (statusEnum == null) {
 //                statusEnum = TeamStatusEnum.PUBLIC;
@@ -496,7 +517,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
             return new ArrayList<>();
         }
 
-        List<TeamUserVO> teamUserVOList = new ArrayList<>();
+        List<TeamVO> teamVOList = new ArrayList<>();
         // 关联查询创建人的用户信息
         for (Team team : teamList) {
             Long userId = team.getUserId();
@@ -504,21 +525,21 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
                 continue;
             }
             User user = userService.getById(userId);
-            TeamUserVO teamUserVO = new TeamUserVO();
-            BeanUtils.copyProperties(team, teamUserVO);
+            TeamVO teamVO = new TeamVO();
+            BeanUtils.copyProperties(team, teamVO);
             // 脱敏用户信息
             if (user != null) {
-                UserVO userVO = new UserVO();
-                BeanUtils.copyProperties(user, userVO);
-                teamUserVO.setCreateUser(userVO);
+//                UserVO userVO = new UserVO();
+//                BeanUtils.copyProperties(user, userVO);
+                teamVO.setUser(user);
             }
-            teamUserVOList.add(teamUserVO);
+            teamVOList.add(teamVO);
         }
-        return teamUserVOList;
+        return teamVOList;
     }
 
     @Override
-    public List<TeamUserVO> listTeam(long userId) {
+    public List<TeamVO> listTeam(long userId) {
         QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userId", userId);
         List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
@@ -529,15 +550,100 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
         List<Team> teamList = list(queryWrapper1);
         if (CollectionUtils.isEmpty(teamList)) return null;
 
-        List<TeamUserVO> teamUserVOList = new ArrayList<>();
+        List<TeamVO> teamVOList = new ArrayList<>();
         for(Team team : teamList) {
-            TeamUserVO teamUserVO = new TeamUserVO();
-            BeanUtils.copyProperties(team, teamUserVO);
-            teamUserVOList.add(teamUserVO);
+            TeamVO teamVO = new TeamVO();
+            BeanUtils.copyProperties(team, teamVO);
+            teamVOList.add(teamVO);
         }
-        return teamUserVOList;
+        return teamVOList;
     }
 
+    @Override
+    public TeamUserVO teamQuery(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        userService.isLogin(request);
+        String searchText = teamQueryRequest.getSearchText();
+        String teamQueryKey = String.format("youyuan:team:teamQuery:%s", searchText);
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        TeamUserVO teamList = (TeamUserVO) valueOperations.get(teamQueryKey);
+        if (teamList != null) {
+            return teamList;
+        }
+        LambdaQueryWrapper<Team> teamLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        teamLambdaQueryWrapper.like(Team::getDescription, searchText.trim())
+                .or().like(Team::getName, searchText.trim());
+        List<Team> teams = this.list(teamLambdaQueryWrapper);
+        // 过滤后的队伍列表
+        TeamUserVO teamUserVO = teamSet(teams);
+        setRedis(teamQueryKey, teamUserVO);
+        return teamUserVO;
+    }
+
+    /**
+     * 处理返回信息Vo
+     *
+     * @param teamList
+     * @return TeamUserVO
+     */
+    public TeamUserVO teamSet(List<Team> teamList) {
+        // 过滤过期的队伍
+        List<Team> listTeam = teamList.stream()
+                .filter(team -> !new Date().after(team.getExpireTime()))
+                .collect(Collectors.toList());
+        Collections.shuffle(listTeam);
+        TeamUserVO teamUserVO = new TeamUserVO();
+        Set<TeamVO> users = new HashSet<>();
+        listTeam.forEach(team -> {
+            TeamVO teamVo = new TeamVO();
+            teamVo.setId(team.getId());
+            teamVo.setName(team.getName());
+            teamVo.setTeamAvatarUrl(team.getTeamAvatarUrl());
+            teamVo.setDescription(team.getDescription());
+            teamVo.setMaxNum(team.getMaxNum());
+            teamVo.setExpireTime(team.getExpireTime());
+            teamVo.setStatus(team.getStatus());
+            teamVo.setCreateTime(team.getCreateTime());
+            teamVo.setAnnounce(team.getAnnounce());
+//            Set<Long> userSet = stringJsonListToLongSet(usersId);
+            Set<User> userSet = new HashSet<>();
+            LambdaQueryWrapper<UserTeam> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(UserTeam::getTeamId, team.getId());
+            List<UserTeam> userTeamList = userTeamService.list(queryWrapper);
+            if(CollectionUtils.isNotEmpty(userTeamList)) {
+                userTeamList.forEach(userTeam -> {
+                    userSet.add(userService.getSafetyUser(userService.getById(userTeam.getUserId())));
+                });
+            }
+//            for (Long id : userSet) {
+//                userList.add(userService.getById(id));
+//            }
+            User createUser = userService.getById(team.getUserId());
+            User safetyUser = userService.getSafetyUser(createUser);
+            teamVo.setUser(safetyUser);
+//            userList = userList.stream().map(userService::getSafetyUser).collect(Collectors.toSet());
+            teamVo.setUserSet(userSet);
+            users.add(teamVo);
+        });
+        teamUserVO.setTeamSet(users);
+        return teamUserVO;
+    }
+
+    /**
+     * 设置 redis 3分钟
+     *
+     * @param redisKey
+     * @param data
+     */
+    private void setRedis(String redisKey, Object data) {
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        try {
+            // 解决缓存雪崩
+            int i = RandomUtil.randomInt(1, 2);
+            valueOperations.set(redisKey, data, 1 + i / 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.error("redis set key error");
+        }
+    }
 
     /**
      * 查询当前队伍人数

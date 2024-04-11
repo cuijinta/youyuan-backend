@@ -8,6 +8,7 @@ import com.google.gson.reflect.TypeToken;
 import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
+import com.qianye.youyuan.model.request.UpdateTagRequest;
 import com.qianye.youyuan.model.request.UserQueryRequest;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.mapper.UserMapper;
@@ -512,6 +513,44 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return users;
     }
 
+    @Override
+    public int updateTagById(UpdateTagRequest updateTag, User currentUser) {
+        long id = updateTag.getId();
+        if (id <= 0) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "该用户不存在");
+        }
+        Set<String> newTags = updateTag.getTagList();
+        if (newTags.size() > 12) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "最多设置12个标签");
+        }
+        if (!isAdmin(currentUser) && id != currentUser.getId()) {
+            throw new GlobalException(ErrorCode.NO_AUTH, "无权限");
+        }
+        User user = userMapper.selectById(id);
+        Gson gson = new Gson();
+        Set<String> oldTags = gson.fromJson(user.getTags(), new TypeToken<Set<String>>() {
+        }.getType());
+        Set<String> oldTagsCapitalize = toCapitalize(oldTags);
+        Set<String> newTagsCapitalize = toCapitalize(newTags);
+
+        // 添加 newTagsCapitalize 中 oldTagsCapitalize 中不存在的元素
+        oldTagsCapitalize.addAll(newTagsCapitalize.stream().filter(tag -> !oldTagsCapitalize.contains(tag)).collect(Collectors.toSet()));
+        // 移除 oldTagsCapitalize 中 newTagsCapitalize 中不存在的元素
+        oldTagsCapitalize.removeAll(oldTagsCapitalize.stream().filter(tag -> !newTagsCapitalize.contains(tag)).collect(Collectors.toSet()));
+        String tagsJson = gson.toJson(oldTagsCapitalize);
+        user.setTags(tagsJson);
+        return userMapper.updateById(user);
+    }
+
+    /**
+     * String类型集合首字母大写
+     *
+     * @param oldSet 原集合
+     * @return 首字母大写的集合
+     */
+    private Set<String> toCapitalize(Set<String> oldSet) {
+        return oldSet.stream().map(StringUtils::capitalize).collect(Collectors.toSet());
+    }
 
 }
 

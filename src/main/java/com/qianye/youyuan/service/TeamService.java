@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.qianye.youyuan.model.domain.Team;
 import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.request.TeamJoinRequest;
-import com.qianye.youyuan.model.request.TeamQuery;
+import com.qianye.youyuan.model.request.TeamQueryRequest;
 import com.qianye.youyuan.model.request.TeamQuitRequest;
 import com.qianye.youyuan.model.request.TeamUpdateRequest;
 import com.qianye.youyuan.model.vo.TeamUserVO;
+import com.qianye.youyuan.model.vo.TeamVO;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 /**
@@ -35,11 +37,11 @@ public interface TeamService extends IService<Team> {
      * 5. 关联查询已加入队伍的用户信息
      * 6. 关联查询已加入队伍的用户信息
      *
-     * @param teamQuery
+     * @param teamQueryRequest
      * @param isAdmin
      * @return
      */
-    List<TeamUserVO> listTeams(TeamQuery teamQuery, boolean isAdmin);
+    List<TeamVO> listTeams(TeamQueryRequest teamQueryRequest, boolean isAdmin);
 
     /**
      * 修改队伍信息
@@ -95,16 +97,18 @@ public interface TeamService extends IService<Team> {
 
     /**
      * 查当前用户创建的队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
-    List<TeamUserVO> listTeams(TeamQuery teamQuery);
+    List<TeamVO> listTeams(TeamQueryRequest teamQueryRequest);
 
     /**
      * 查询当前用户加入的队伍
      * @param userId
      * @return
      */
-    List<TeamUserVO> listTeam(long userId);
+    List<TeamVO> listTeam(long userId);
+
+    TeamUserVO teamQuery(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
 }
 

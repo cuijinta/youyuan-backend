@@ -9,6 +9,7 @@ import com.qianye.youyuan.model.domain.User;
 import com.qianye.youyuan.model.domain.UserTeam;
 import com.qianye.youyuan.model.request.*;
 import com.qianye.youyuan.model.vo.TeamUserVO;
+import com.qianye.youyuan.model.vo.TeamVO;
 import com.qianye.youyuan.service.TeamService;
 import com.qianye.youyuan.service.UserService;
 import com.qianye.youyuan.service.UserTeamService;
@@ -72,18 +73,18 @@ public class TeamController {
 
     /**
      * 查询队伍
-     * @param teamQuery
+     * @param teamQueryRequest
      * @return
      */
     @GetMapping("/list")
-    public Result<List<TeamUserVO>> listTeams(TeamQuery teamQuery, HttpServletRequest request) {
-        if (teamQuery == null) {
+    public Result<List<TeamVO>> listTeams(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        if (teamQueryRequest == null) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
         boolean isAdmin = userService.isAdmin(request);
         // 1、查询队伍列表
-        List<TeamUserVO> teamList = teamService.listTeams(teamQuery, isAdmin);
-        final List<Long> teamIdList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+        List<TeamVO> teamList = teamService.listTeams(teamQueryRequest, isAdmin);
+        final List<Long> teamIdList = teamList.stream().map(TeamVO::getId).collect(Collectors.toList());
         if (CollectionUtils.isEmpty(teamIdList)) return ResultUtils.success(null);
         // 2、判断当前用户是否已加入队伍
         QueryWrapper<UserTeam> userTeamQueryWrapper = new QueryWrapper<>();
@@ -204,15 +205,15 @@ public class TeamController {
      * @return
      */
     @GetMapping("/list/create")
-    public Result<List<TeamUserVO>> listMyCreate(HttpServletRequest request, TeamQuery teamQuery) {
+    public Result<List<TeamVO>> listMyCreate(HttpServletRequest request, TeamQueryRequest teamQueryRequest) {
         if (request == null) {
             throw new GlobalException(ErrorCode.NOT_LOGIN);
         }
         User loginUser = userService.getLoginUser(request);
-        teamQuery.setUserId(loginUser.getId());
-        List<TeamUserVO> teamList = teamService.listTeams(teamQuery, true);
+        teamQueryRequest.setUserId(loginUser.getId());
+        List<TeamVO> teamList = teamService.listTeams(teamQueryRequest, true);
 
-        List<Long> idList = teamList.stream().map(TeamUserVO::getId).collect(Collectors.toList());
+        List<Long> idList = teamList.stream().map(TeamVO::getId).collect(Collectors.toList());
         // 3、查询已加入队伍的人数
         QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
         userTeamJoinQueryWrapper.in("teamId", idList);
@@ -232,8 +233,8 @@ public class TeamController {
      * @return
      */
     @GetMapping("/list/join")
-    public Result<List<TeamUserVO>> listMyJoinTeams(TeamQuery teamQuery, HttpServletRequest request) {
-        if (teamQuery == null) {
+    public Result<List<TeamVO>> listMyJoinTeams(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        if (teamQueryRequest == null) {
             throw new GlobalException(ErrorCode.PARAMS_ERROR);
         }
         User logininUser = userService.getLoginUser(request);
@@ -244,8 +245,8 @@ public class TeamController {
         // 取出不重复的队伍 id
         Map<Long, List<UserTeam>> listMap = userTeamlist.stream().collect(Collectors.groupingBy(UserTeam::getTeamId));
         ArrayList<Long> idList = new ArrayList<>(listMap.keySet());
-        teamQuery.setIdList(idList);
-        List<TeamUserVO> teamList = teamService.listTeams(teamQuery,true);
+        teamQueryRequest.setIdList(idList);
+        List<TeamVO> teamList = teamService.listTeams(teamQueryRequest,true);
 
         // 3、查询已加入队伍的人数
         QueryWrapper<UserTeam> userTeamJoinQueryWrapper = new QueryWrapper<>();
@@ -259,5 +260,22 @@ public class TeamController {
         });
         return ResultUtils.success(teamList);
     }
+
+    /**
+     *
+     * @param teamQueryRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/search")
+    public Result<TeamUserVO> teamQuery(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        if (teamQueryRequest == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR, "队伍不存在");
+        }
+        TeamUserVO teams = teamService.teamQuery(teamQueryRequest, request);
+        return ResultUtils.success(teams);
+    }
+
+
 }
 

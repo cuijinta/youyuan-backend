@@ -8,6 +8,7 @@ import com.qianye.youyuan.common.Result;
 import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
 import com.qianye.youyuan.model.domain.User;
+import com.qianye.youyuan.model.request.UpdateTagRequest;
 import com.qianye.youyuan.model.request.UserLoginRequest;
 import com.qianye.youyuan.model.request.UserQueryRequest;
 import com.qianye.youyuan.model.request.UserRegisterRequest;
@@ -140,7 +141,7 @@ public class UserController {
     /**
      * 管理员根据用户名搜索用户
      *
-     * @param username 用户名
+     * @param userQueryRequest 用户名
      * @param request  请求体
      * @return
      */
@@ -325,4 +326,16 @@ public class UserController {
         List<User> searchFriend = userService.searchFriend(userQueryRequest, currentUser);
         return ResultUtils.success(searchFriend);
     }
+
+    @PostMapping("/update/tags")
+    public Result<Integer> updateTagById(@RequestBody UpdateTagRequest tagRequest, HttpServletRequest request) {
+        if (tagRequest == null) {
+            throw new GlobalException(ErrorCode.PARAMS_ERROR);
+        }
+        User currentUser = userService.getLoginUser(request);
+        int updateTag = userService.updateTagById(tagRequest, currentUser);
+        redisTemplate.delete(userService.redisFormat(currentUser.getId()));
+        return ResultUtils.success(updateTag);
+    }
+
 }

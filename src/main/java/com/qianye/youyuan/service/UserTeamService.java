@@ -2,9 +2,6 @@ package com.qianye.youyuan.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.qianye.youyuan.model.domain.UserTeam;
-import com.qianye.youyuan.model.vo.TeamUserVO;
-
-import java.util.List;
 
 /**
  * 用户队伍关系(UserTeam)表服务接口

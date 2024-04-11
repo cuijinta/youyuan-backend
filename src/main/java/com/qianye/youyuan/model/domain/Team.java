@@ -3,6 +3,7 @@ package com.qianye.youyuan.model.domain;
 import java.util.Date;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
@@ -27,12 +28,15 @@ public class Team {
     private String name;
     // 描述
     private String description;
+
+    private String teamAvatarUrl;
     // 最大人数
     private Integer maxNum;
     // 过期时间
     private Date expireTime;
-    // 用户id
+    // 创建人 id
     private Long userId;
+
     // 0 - 公开，1 - 私有，2 - 加密
     private Integer status;
     // 密码
@@ -44,6 +48,10 @@ public class Team {
     // 是否删除
     @TableLogic
     private Integer isDelete;
+    /**
+     * 公告
+     */
+    private String announce;
 
 }
 

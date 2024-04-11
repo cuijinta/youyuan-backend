@@ -2,6 +2,7 @@ package com.qianye.youyuan.service;
 
 import com.qianye.youyuan.model.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.qianye.youyuan.model.request.UpdateTagRequest;
 import com.qianye.youyuan.model.request.UserQueryRequest;
 
 import javax.servlet.http.HttpServletRequest;
@@ -105,4 +106,6 @@ public interface UserService extends IService<User> {
     boolean deleteFriend(User currentUser, Long id);
 
     List<User> searchFriend(UserQueryRequest userQueryRequest, User currentUser);
+
+    int updateTagById(UpdateTagRequest tagRequest, User currentUser);
 }
