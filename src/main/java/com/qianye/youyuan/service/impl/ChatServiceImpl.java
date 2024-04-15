@@ -3,6 +3,7 @@ package com.qianye.youyuan.service.impl;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.qianye.youyuan.constant.enums.ErrorCode;
 import com.qianye.youyuan.exception.GlobalException;
@@ -178,7 +179,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat> implements Ch
             throw new GlobalException(ErrorCode.PARAMS_ERROR, "请求有误");
         }
         List<MessageVo> chatRecords = getCache(CACHE_CHAT_TEAM, String.valueOf(teamId));
-        if (chatRecords != null) {
+        if (CollectionUtils.isNotEmpty(chatRecords)) {
             List<MessageVo> messageVos = checkIsMyMessage(loginUser, chatRecords);
             saveCache(CACHE_CHAT_TEAM, String.valueOf(teamId), messageVos);
             return messageVos;

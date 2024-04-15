@@ -262,7 +262,7 @@ public class TeamController {
     }
 
     /**
-     *
+     * 根据teamId获取队伍完整信息
      * @param teamQueryRequest
      * @param request
      * @return
@@ -276,6 +276,14 @@ public class TeamController {
         return ResultUtils.success(teams);
     }
 
+    @GetMapping("/{teamId}")
+    public Result<TeamVO> getTeamById(@PathVariable("teamId") Long teamId, HttpServletRequest request) {
+        if(request == null) {
+            throw new GlobalException(ErrorCode.NO_AUTH);
+        }
+        TeamVO teamVO = teamService.getTeamVO(teamId, request);
+        return ResultUtils.success(teamVO);
+    }
 
 }
 

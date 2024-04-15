@@ -110,5 +110,13 @@ public interface TeamService extends IService<Team> {
     List<TeamVO> listTeam(long userId);
 
     TeamUserVO teamQuery(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
+
+    /**
+     * 根据队伍id获取队伍完整信息
+     * @param teamId
+     * @param request
+     * @return
+     */
+    TeamVO getTeamVO(Long teamId, HttpServletRequest request);
 }
 

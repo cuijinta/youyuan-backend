@@ -580,6 +580,41 @@ public class TeamServiceImpl extends ServiceImpl<TeamDao, Team> implements TeamS
     }
 
     /**
+     * 根据队伍id获取队伍完整信息
+     * @param teamId
+     * @param request
+     * @return
+     */
+    @Override
+    public TeamVO getTeamVO(Long teamId, HttpServletRequest request) {
+        TeamVO teamVO = new TeamVO();
+        LambdaQueryWrapper<Team> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Team::getId, teamId);
+        Team team = getOne(queryWrapper);
+        if(team == null) {
+            throw new GlobalException(ErrorCode.NULL_ERROR, "队伍不存在");
+        }
+        BeanUtils.copyProperties(team, teamVO);
+        if(team.getUserId() != null) {
+            teamVO.setUser(userService.getById(team.getUserId()));
+        }
+
+        Set<User> userSet = new HashSet<>();
+        LambdaQueryWrapper<UserTeam> queryWrapper1 = new LambdaQueryWrapper<>();
+        queryWrapper1.eq(UserTeam::getTeamId, teamId).select(UserTeam::getUserId);
+        List<UserTeam> userTeams = userTeamService.list(queryWrapper1);
+        if(CollectionUtils.isNotEmpty(userTeams)) {
+            Set<Long> userIds = userTeams.stream().map(UserTeam::getUserId).collect(Collectors.toSet());
+            userIds.forEach(userId -> {
+                userSet.add(userService.getSafetyUser(userService.getById(userId)));
+            });
+        }
+        teamVO.setUserSet(userSet);
+
+        return teamVO;
+    }
+
+    /**
      * 处理返回信息Vo
      *
      * @param teamList
